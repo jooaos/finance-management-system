@@ -25,6 +25,14 @@ type MonthlySpendingProgress struct {
 	PercentualDoSaldo float64 `json:"percentual_do_saldo"`
 }
 
+type MonthlyCommitmentProjection struct {
+	Mes                    time.Time `json:"mes"`
+	TotalReceita           float64   `json:"total_receita"`
+	TotalDespesa           float64   `json:"total_despesa"`
+	SaldoProjetado         float64   `json:"saldo_projetado"`
+	PercentualComprometido float64   `json:"percentual_comprometido"`
+}
+
 type TransacaoService struct {
 	transacoesRepository *repository.TransacoesRepository
 	categoriaRepository  *repository.CategoriaRepository
@@ -43,6 +51,14 @@ func NewTransacaoService(
 func (t *TransacaoService) Create(ctx context.Context, request requests.CreateTransactionRequest) ([]domain.Transacao, error) {
 	totalParcelas := request.Parcelas
 	if totalParcelas < 1 {
+		totalParcelas = 1
+	}
+
+	isReceita, err := t.isReceitaCategory(ctx, request.UsuarioID, request.CategoriaID)
+	if err != nil {
+		return nil, err
+	}
+	if isReceita {
 		totalParcelas = 1
 	}
 
@@ -67,6 +83,21 @@ func (t *TransacaoService) Create(ctx context.Context, request requests.CreateTr
 	}
 
 	return createdTransacoes, nil
+}
+
+func (t *TransacaoService) isReceitaCategory(ctx context.Context, usuarioID int, categoriaID int) (bool, error) {
+	categorias, err := t.categoriaRepository.GetAllByUsuarioID(ctx, usuarioID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get user categories: %w", err)
+	}
+
+	for _, categoria := range categorias {
+		if categoria.ID == categoriaID {
+			return strings.EqualFold(categoria.Nome, receitaCategoryName), nil
+		}
+	}
+
+	return false, nil
 }
 
 func (t *TransacaoService) GetMonthlySummary(ctx context.Context, usuarioID int, mes time.Time) (*MonthlyTransactionSummary, error) {
@@ -98,6 +129,38 @@ func (t *TransacaoService) GetMonthlySpendingProgress(ctx context.Context, usuar
 		SaldoTotal:        totalReceita,
 		PercentualDoSaldo: percentualDoSaldo,
 	}, nil
+}
+
+func (t *TransacaoService) GetCommitmentProjection(ctx context.Context, usuarioID int, mes time.Time, months int) ([]MonthlyCommitmentProjection, error) {
+	if months < 1 {
+		months = 1
+	}
+
+	projections := make([]MonthlyCommitmentProjection, 0, months)
+	baseMonth := time.Date(mes.Year(), mes.Month(), 1, 0, 0, 0, 0, mes.Location())
+
+	for monthIndex := 0; monthIndex < months; monthIndex++ {
+		currentMonth := baseMonth.AddDate(0, monthIndex, 0)
+		totalReceita, totalDespesa, err := t.getMonthlyRevenueAndExpense(ctx, usuarioID, currentMonth)
+		if err != nil {
+			return nil, err
+		}
+
+		var percentualComprometido float64
+		if totalReceita > 0 {
+			percentualComprometido = (totalDespesa / totalReceita) * 100
+		}
+
+		projections = append(projections, MonthlyCommitmentProjection{
+			Mes:                    currentMonth,
+			TotalReceita:           totalReceita,
+			TotalDespesa:           totalDespesa,
+			SaldoProjetado:         totalReceita - totalDespesa,
+			PercentualComprometido: percentualComprometido,
+		})
+	}
+
+	return projections, nil
 }
 
 func (t *TransacaoService) getMonthlyRevenueAndExpense(ctx context.Context, usuarioID int, mes time.Time) (float64, float64, error) {

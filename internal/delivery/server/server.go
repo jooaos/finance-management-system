@@ -2,6 +2,7 @@ package server
 
 import (
 	"log/slog"
+	"net/http"
 
 	"finance-management/internal/service"
 
@@ -44,10 +45,16 @@ func (h *HTTPServer) InitServer() *mux.Router {
 	s.HandleFunc("/usuarios/{usuario_id}/categorias", h.GetCategoriasByUsuarioID).Methods("GET")
 	s.HandleFunc("/categorias", h.CreateCategoria).Methods("POST")
 	s.HandleFunc("/categorias/{id}", h.DeleteCategoria).Methods("DELETE")
+	s.HandleFunc("/categorias/{id}", h.UpdateCategoria).Methods("PUT")
 	s.HandleFunc("/orcamentos", h.CreateOrcamento).Methods("POST")
 	s.HandleFunc("/usuarios/{usuario_id}/orcamentos", h.GetOrcamentosByUsuarioIDAndMes).Methods("GET")
 	s.HandleFunc("/usuarios/{usuario_id}/orcamentos/total", h.GetTotalOrcamentoByUsuarioIDAndMes).Methods("GET")
 	s.HandleFunc("/orcamentos/{id}", h.UpdateOrcamento).Methods("PUT")
+	s.HandleFunc("/usuarios/{usuario_id}/relatorios/mensal", h.GetMonthlyTransactionSummary).Methods("GET")
+	s.HandleFunc("/usuarios/{usuario_id}/relatorios/gastos", h.GetMonthlySpendingProgress).Methods("GET")
+	s.HandleFunc("/usuarios/{usuario_id}/projecao/comprometimento", h.GetCommitmentProjection).Methods("GET")
+
+	r.PathPrefix("/").Handler(http.FileServer(http.Dir("frontend")))
 
 	return r
 }

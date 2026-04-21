@@ -1,4 +1,4 @@
-FROM golang:1.24 AS builder
+FROM golang:1.25 AS builder
 
 WORKDIR /app
 
@@ -16,6 +16,7 @@ WORKDIR /bin
 
 COPY --from=builder /app/api .
 COPY --from=builder /app/.env .
+COPY --from=builder /app/frontend ./frontend
 
 EXPOSE 8080
 

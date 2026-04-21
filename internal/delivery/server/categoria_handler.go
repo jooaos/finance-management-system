@@ -49,6 +49,35 @@ func (h *HTTPServer) CreateCategoria(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusCreated, categoria)
 }
 
+func (h *HTTPServer) UpdateCategoria(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil || id <= 0 {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid categoria id", nil)
+		return
+	}
+
+	var request requests.UpdateCategoryRequest
+	if err := decodeJSON(r, &request); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid request body", err.Error())
+		return
+	}
+	request.ID = id
+
+	if err := h.validator.Struct(request); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid request data", helpers.GetErrorValidations(err))
+		return
+	}
+
+	categoria, err := h.categoriaService.Update(r.Context(), request)
+	if err != nil {
+		h.logger.Error("could not update categoria", helpers.ErrLoggingKey, err)
+		writeErrorResponse(w, http.StatusBadRequest, "could not update categoria", err.Error())
+		return
+	}
+
+	writeSuccessResponse(w, http.StatusOK, categoria)
+}
+
 func (h *HTTPServer) DeleteCategoria(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil || id <= 0 {

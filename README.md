@@ -1,285 +1,372 @@
-# Finance Management System
+# Finance Management
 
-This project is a backend system for managing user accounts on exchanges
+Sistema simples de controle financeiro pessoal feito em Go, MariaDB e frontend estático com HTML, CSS e Bootstrap.
 
-The main objective is to build a set of RESTful APIs to manage exchanges, users, and their respective accounts by applying specific business rules, such as age verification and transaction limits.
+O projeto permite criar usuários, registrar receitas e despesas, gerenciar categorias, definir orçamento por categoria, visualizar relatório mensal e acompanhar quanto da renda dos próximos meses já está comprometida por transações parceladas.
 
-The system was developed following Golang  and interacting with a MariaDB database.
+## Tecnologias
 
+- Go 1.25
+- MariaDB
+- GORM
+- Gorilla Mux
+- Docker e Docker Compose
+- HTML, CSS e Bootstrap
 
-## Features
-* **Exchange Management:** Allows the creation of new exchanges with a name, minimum required age for users, and a maximum transfer amount per transaction.
-* **User Management:** Allows the creation of users with unique details like a username and document number.
-* **Account Management:** Enables a user to open an account with a specific exchange, enforcing the exchange's minimum age requirement.
-* **Financial Operations:**
-    * **Deposit:** Add funds to an account , validating the amount against the exchange's maximum transfer limit.
-    * **Withdrawal:** Withdraw funds from an account, validating the amount against the exchange's limit and the user's current balance.
-* **Queries and Reports:**
-    * Fetches a user's consolidated balance across all exchange accounts.
-    * Generates a report of daily transaction volume per exchange within a given date range.
+## Requisitos
 
-## Tech Stack
-* **Language:** Golang (v1.24)
-* **Database:** MariaDB (v10.8)
-* **Infrastructure:**
-	* Docker
-	* Docker-Compose
+- Docker
+- Docker Compose
+- Go 1.25, caso rode a API fora do container
+- [Air](https://github.com/air-verse/air), caso use o modo desenvolvimento
 
-## Prerequisites
+## Configuração
 
-All commands here are using make, but if you don't want use it, you can access Makefile, copy command and paste in your terminal
+Crie o arquivo `.env`:
 
-## Getting Started
-
-Follow these steps to get the project running locally.
-
-### 1. Copy env
-```
+```bash
 cp .env.example .env
 ```
 
-### 2. Up services
+Exemplo de variáveis:
+
+```env
+DB_USER=root
+DB_PASSWORD=root
+DB_HOST=db
+DB_PORT=3306
+DB_NAME=finance_management
 ```
+
+## Rodando com Docker
+
+Suba os serviços:
+
+```bash
 make up-dettached
 ```
-Run the follow command and check if your app is up
-```
-docker container ps | grep "finance_management"
-```
 
-It's necessary to appear two containes: `finance_management_api_stable` and `finance_management_db`, if it's showing, you can go to next step
+Rode as migrations:
 
-### 3. Run migrations
-```
+```bash
 make migration-up
 ```
-Now you can use the application using the endpoint `http://localhost:8080` 
 
-### Developer Mode
-If you want to test in developer mode, it's necessary to have [air](https://github.com/air-verse/air) in your local environment
+Acesse:
 
-#### 1. Up database
+```text
+http://localhost:8080
 ```
+
+## Modo Desenvolvimento
+
+Neste modo, apenas o banco roda no Docker e a API roda localmente com Air.
+
+Suba o banco:
+
+```bash
 make up-service SERVICE=db
 ```
 
-#### 2. Run migrations (if it's necessary)
-```
+Rode as migrations:
+
+```bash
 make migration-up
 ```
 
-#### 3. Setup depencies
-```
+Baixe as dependências:
+
+```bash
 make set-up
 ```
-#### 4. Up API using air
-```
+
+Suba a API com Air:
+
+```bash
 make air-up SERVICE=api
 ```
 
-Now you can use the application using the endpoint `http://localhost:8080` 
+Acesse:
 
-### Testing
-To run unit test, use the following command
+```text
+http://localhost:8080
 ```
+
+## Testes
+
+```bash
 make test-unit
 ```
-## API Documentation
-Below are the available API endpoints as required 
 
-#### Testing with Postman 
-To make it easier to test the API endpoints, this project includes a Postman collection that you can import. The collection file, named `Finance Management.postman_collection`, is located in the `docs/postman/` directory at the root of the project. It contains all the available requests documented below. An environment file, `Finance Management.postman_environment`, is also included. It's recommended that you import it as well, as it contains the `api_url` variable pre-configured to `http://localhost:8080/api`.
+Se tiver problema de permissão com o cache do Go:
 
------
-
-### Exchange
-
-#### 1. Create Exchange
-This endpoint is used to create exchanges in the system. Each exchange should have a name, a minimum age for users, and a maximum transfer amount. 
-* **Endpoint:** `POST /api/exchange`
-* **Body (Request):**
-```json
-{
-	"name": "CryptoExchange_V3",
-	"min_age": 5,
-	"max_amount": 5000
-}
-```
-* **Response (201 Created):**
-```json
-{
-	"data": {
-		"id": 6,
-		"name": "CryptoExchange_V3"
-	}
-}
-```
------
-
-### User
-
-#### 2. Create User
-This endpoint is used to create users in the system. Each user should have a unique username, a date of birth, and a unique document number.
-
-* **Endpoint:** `POST /api/user`
-* **Body (Request):**
-```json
-{
-	"username": "user_test_02",
-	"document_number": "12345678900",
-	"date_of_birth": "1990-01-01"
-}
-```
-* **Response (201 Created):**
-```json
-{
-	"data": {
-		"id": 2,
-		"username": "user_test_03",
-		"document_number": "12345678901",
-		"date_of_birth": "1990-01-01T00:00:00Z"
-	}
-}
-```
------
-### Account
-#### 3. Create Account
-This endpoint creates a user account for a specific exchange. An account can only be created if the user's age is greater than or equal to the exchange's minimum age requirement. The API must generate and return an account ID in the response.
-
-* **Endpoint:** `POST /api/account`
-
-* **Body (Request):**
-
-```json
-{
-	"user_id": 1,
-	"exchange_id": 5
-}
-```
-* **Response (201 Created):**
-
-```json
-{
-    "data": {
-        "account_id": "0d96dfb4-7587-4a82-b92f-f349dfa661da"
-    }
-}
-```
-### Transaction
-#### 4. Make a Deposit
-This endpoint is used to add funds to a user's account.
-* The deposit amount must be greater than 0. 
-* The amount must not exceed the exchange's maximum transfer amount. 
-* **Endpoint:** `POST /api/transaction/deposit`
-
-* **Body (Request):**
-```json
-{
-	"account_id": "67f13780-b962-4430-bd5d-52bef38fb231",
-	"amount": 5000
-}
-```
-* **Response (201 CREATED):**
-```json
-
-{
-	"data": {
-		"account_id": "67f13780-b962-4430-bd5d-52bef38fb231",
-		"amount": 5000,
-		"new_balance": 45000
-	}
-}
+```bash
+GOCACHE=/tmp/go-build-tcc go test ./...
 ```
 
-#### 5. Make a Withdrawal
-This endpoint is used to withdraw a specific amount from a user's balance.
-* The withdrawal amount must be greater than 0. 
-* The amount must not exceed the exchange's maximum transfer limit.
-* The amount must not exceed the account's current balance.
-* **Endpoint:** `POST /api/transaction/withdrawal`
-* **Body (Request):**
-```json
-{
-	"account_id": "2c64242a-ce18-4193-891e-234937f80cfd",
-	"amount": 500.25
-}
-```
-* **Response (201 CREATED):**
-```json
-{
-	"data": {
-		"account_id": "2c64242a-ce18-4193-891e-234937f80cfd",
-		"amount": 500.25,
-		"new_balance": 44499.75
-	}
-}
+## Frontend
+
+O frontend fica em:
+
+```text
+frontend/
 ```
 
-#### 6. Get User Balance
-This endpoint retrieves the balances an individual user holds across all of their exchange accounts.
-* The response must include an individual balance for each exchange where the user has funds, excluding accounts with a zero balance. 
-* The response must also include the total balance from all accounts.
-* **Endpoint:** `GET /api/user/{userId}/balance`
-* **Response (200 OK):**
-```json
-{
-    "data": {
-        "total_balance": 70000,
-        "balances_by_exchange": [
-            {
-                "user_id": 1,
-                "exchange_id": 1,
-                "account_id": "2c64242a-ce18-4193-891e-234937f80cfd",
-                "balance": 35000,
-                "exchange": {
-                    "name": "CryptoExchange"
-                }
-            },
-            {
-                "user_id": 1,
-                "exchange_id": 5,
-                "account_id": "67f13780-b962-4430-bd5d-52bef38fb231",
-                "balance": 35000,
-                "exchange": {
-                    "name": "CryptoExchange_V2"
-                }
-            }
-        ]
-    }
-}
+Ele é servido pela própria API. Em modo desenvolvimento, depois de alterar HTML/CSS/JS, normalmente basta dar refresh no navegador:
+
+```text
+Ctrl + F5
 ```
 
-#### 7. Daily Transaction Volume Report
-This endpoint reports transaction volumes per exchange for each day within a date range.
-* The API must accept a start date and an end date as query parameters.
-* It returns the total transaction amount per exchange for each day in the specified range. 
-* **Endpoint:** `GET /api/transactions/daily-volume?start_date=2025-10-01&end_date=2025-10-05`
-* **Response (200 OK):**
-```json
-{
-    "data": [
-        {
-            "date": "2025-10-09",
-            "exchanges": [
-                {
-                    "exchange_name": "CryptoExchange",
-                    "amount": 30000
-                },
-                {
-                    "exchange_name": "CryptoExchange_V2",
-                    "amount": 35000
-                }
-            ]
-        },
-        {
-            "date": "2025-10-08",
-            "exchanges": [
-                {
-                    "exchange_name": "CryptoExchange",
-                    "amount": 5000
-                }
-            ]
-        }
-    ]
-}
+Telas atuais:
+
+- Criar usuário
+- Nova transação
+- Gerenciar categorias
+- Relatório mensal
+- Projeção financeira
+
+## Rotas Disponíveis
+
+```text
+POST   /api/usuarios
+POST   /api/transacoes
+GET    /api/usuarios/{usuario_id}/categorias
+POST   /api/categorias
+PUT    /api/categorias/{id}
+DELETE /api/categorias/{id}
+POST   /api/orcamentos
+GET    /api/usuarios/{usuario_id}/orcamentos?mes=YYYY-MM-DD
+GET    /api/usuarios/{usuario_id}/orcamentos/total?mes=YYYY-MM-DD
+PUT    /api/orcamentos/{id}
+GET    /api/usuarios/{usuario_id}/relatorios/mensal?mes=YYYY-MM-DD
+GET    /api/usuarios/{usuario_id}/relatorios/gastos?mes=YYYY-MM-DD
+GET    /api/usuarios/{usuario_id}/projecao/comprometimento?mes=YYYY-MM-DD&meses=4
+```
+
+## Exemplos de Uso
+
+Os exemplos abaixo assumem que a API está rodando em:
+
+```text
+http://localhost:8080
+```
+
+### Criar Usuário
+
+```bash
+curl -X POST http://localhost:8080/api/usuarios \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nome": "Joao",
+    "email": "joao@email.com"
+  }'
+```
+
+Ao criar um usuário, o sistema cria automaticamente as categorias:
+
+- Alimentação
+- Transporte
+- Lazer
+- Moradia
+- Receita
+
+### Listar Categorias do Usuário
+
+```bash
+curl http://localhost:8080/api/usuarios/1/categorias
+```
+
+### Criar Categoria
+
+```bash
+curl -X POST http://localhost:8080/api/categorias \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nome": "Saúde",
+    "usuario_id": 1
+  }'
+```
+
+### Editar Categoria
+
+```bash
+curl -X PUT http://localhost:8080/api/categorias/6 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": 6,
+    "nome": "Farmácia",
+    "usuario_id": 1
+  }'
+```
+
+### Excluir Categoria
+
+```bash
+curl -X DELETE http://localhost:8080/api/categorias/6
+```
+
+Evite excluir categorias que já estejam sendo usadas por transações ou orçamentos, pois o banco pode bloquear por chave estrangeira.
+
+## Transações
+
+### Criar Receita
+
+Use a categoria `Receita`.
+
+```bash
+curl -X POST http://localhost:8080/api/transacoes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "usuario_id": 1,
+    "categoria_id": 5,
+    "valor": 3000,
+    "data": "2026-04-21T00:00:00Z",
+    "descricao": "Salário",
+    "tipo": "pix",
+    "parcelas": 1
+  }'
+```
+
+Receitas não são parceladas. Mesmo que `parcelas` seja maior que `1`, o sistema registra a receita apenas no mês escolhido.
+
+### Criar Despesa
+
+```bash
+curl -X POST http://localhost:8080/api/transacoes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "usuario_id": 1,
+    "categoria_id": 1,
+    "valor": 100,
+    "data": "2026-04-21T00:00:00Z",
+    "descricao": "Mercado",
+    "tipo": "debito",
+    "parcelas": 1
+  }'
+```
+
+### Criar Despesa Parcelada
+
+```bash
+curl -X POST http://localhost:8080/api/transacoes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "usuario_id": 1,
+    "categoria_id": 3,
+    "valor": 150,
+    "data": "2026-04-21T00:00:00Z",
+    "descricao": "Compra parcelada",
+    "tipo": "cartao",
+    "parcelas": 3
+  }'
+```
+
+Esse exemplo cria uma transação em cada mês:
+
+```text
+2026-04-21
+2026-05-21
+2026-06-21
+```
+
+O campo `valor` representa o valor de cada parcela.
+
+## Orçamentos
+
+### Criar Orçamento por Categoria
+
+```bash
+curl -X POST http://localhost:8080/api/orcamentos \
+  -H "Content-Type: application/json" \
+  -d '{
+    "usuario_id": 1,
+    "categoria_id": 1,
+    "limite": 500,
+    "mes": "2026-04-01T00:00:00Z"
+  }'
+```
+
+O campo `mes` é normalizado para o primeiro dia do mês.
+
+### Listar Orçamentos do Mês
+
+```bash
+curl "http://localhost:8080/api/usuarios/1/orcamentos?mes=2026-04-01"
+```
+
+### Total Planejado do Mês
+
+```bash
+curl "http://localhost:8080/api/usuarios/1/orcamentos/total?mes=2026-04-01"
+```
+
+### Editar Orçamento
+
+```bash
+curl -X PUT http://localhost:8080/api/orcamentos/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "usuario_id": 1,
+    "categoria_id": 1,
+    "limite": 650,
+    "mes": "2026-04-01T00:00:00Z"
+  }'
+```
+
+## Relatórios
+
+### Relatório Mensal
+
+```bash
+curl "http://localhost:8080/api/usuarios/1/relatorios/mensal?mes=2026-04-01"
+```
+
+Retorna:
+
+- total de receitas
+- total de despesas
+- saldo atual
+
+### Progresso de Gastos
+
+```bash
+curl "http://localhost:8080/api/usuarios/1/relatorios/gastos?mes=2026-04-01"
+```
+
+Retorna:
+
+- total gasto no mês
+- receita do mês
+- percentual da receita já utilizada
+
+### Projeção de Comprometimento
+
+```bash
+curl "http://localhost:8080/api/usuarios/1/projecao/comprometimento?mes=2026-04-01&meses=4"
+```
+
+Essa rota mostra quanto da renda dos próximos meses já está comprometida por transações futuras, como compras parceladas.
+
+Importante:
+
+- Receitas aparecem apenas no mês em que foram registradas.
+- Despesas parceladas aparecem nos meses subsequentes.
+- Se um mês futuro não tiver receita registrada, a receita daquele mês fica zerada.
+
+## Dicas
+
+Se uma migration falhar durante o desenvolvimento e você não tiver dados importantes, o caminho mais simples é recriar o banco:
+
+```bash
+make down
+sudo rm -rf build/docker/mariadb/_dbdata
+make up-dettached
+make migration-up
+```
+
+Se estiver usando Air e alterar apenas arquivos do frontend, use:
+
+```text
+Ctrl + F5
 ```
