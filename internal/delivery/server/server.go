@@ -52,6 +52,7 @@ func (h *HTTPServer) InitServer() *mux.Router {
 	s.HandleFunc("/orcamentos/{id}", h.UpdateOrcamento).Methods("PUT")
 	s.HandleFunc("/usuarios/{usuario_id}/relatorios/mensal", h.GetMonthlyTransactionSummary).Methods("GET")
 	s.HandleFunc("/usuarios/{usuario_id}/relatorios/gastos", h.GetMonthlySpendingProgress).Methods("GET")
+	s.HandleFunc("/usuarios/{usuario_id}/relatorios/categorias", h.GetCategoryMonthlySummary).Methods("GET")
 	s.HandleFunc("/usuarios/{usuario_id}/projecao/comprometimento", h.GetCommitmentProjection).Methods("GET")
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("frontend")))

@@ -70,7 +70,7 @@ func main() {
 	orcamentosRepository := repository.NewOrcamentosRepository(db)
 
 	usuarioService := service.NewUsuarioService(userRepository, categoriaRepository)
-	transacaoService := service.NewTransacaoService(transacoesRepository, categoriaRepository)
+	transacaoService := service.NewTransacaoService(transacoesRepository, categoriaRepository, orcamentosRepository)
 	categoriaService := service.NewCategoriaService(categoriaRepository)
 	orcamentoService := service.NewOrcamentoService(orcamentosRepository)
 

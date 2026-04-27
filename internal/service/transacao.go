@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -25,6 +26,16 @@ type MonthlySpendingProgress struct {
 	PercentualDoSaldo float64 `json:"percentual_do_saldo"`
 }
 
+type CategoryMonthlySpendingSummary struct {
+	CategoriaID         int     `json:"categoria_id"`
+	CategoriaNome       string  `json:"categoria_nome"`
+	Orcamento           float64 `json:"orcamento"`
+	Gasto               float64 `json:"gasto"`
+	Disponivel          float64 `json:"disponivel"`
+	PercentualUtilizado float64 `json:"percentual_utilizado"`
+	Excedido            bool    `json:"excedido"`
+}
+
 type MonthlyCommitmentProjection struct {
 	Mes                    time.Time `json:"mes"`
 	TotalReceita           float64   `json:"total_receita"`
@@ -36,15 +47,18 @@ type MonthlyCommitmentProjection struct {
 type TransacaoService struct {
 	transacoesRepository *repository.TransacoesRepository
 	categoriaRepository  *repository.CategoriaRepository
+	orcamentosRepository *repository.OrcamentosRepository
 }
 
 func NewTransacaoService(
 	transacoesRepository *repository.TransacoesRepository,
 	categoriaRepository *repository.CategoriaRepository,
+	orcamentosRepository *repository.OrcamentosRepository,
 ) *TransacaoService {
 	return &TransacaoService{
 		transacoesRepository: transacoesRepository,
 		categoriaRepository:  categoriaRepository,
+		orcamentosRepository: orcamentosRepository,
 	}
 }
 
@@ -62,12 +76,14 @@ func (t *TransacaoService) Create(ctx context.Context, request requests.CreateTr
 		totalParcelas = 1
 	}
 
+	valoresParcelas := splitInstallments(request.Valor, totalParcelas)
+
 	createdTransacoes := make([]domain.Transacao, 0, totalParcelas)
 	for parcela := 0; parcela < totalParcelas; parcela++ {
 		transacao := &domain.Transacao{
 			UsuarioID:   request.UsuarioID,
 			CategoriaID: request.CategoriaID,
-			Valor:       request.Valor,
+			Valor:       valoresParcelas[parcela],
 			Data:        request.Data.AddDate(0, parcela, 0),
 			Descricao:   request.Descricao,
 			Tipo:        request.Tipo,
@@ -131,6 +147,70 @@ func (t *TransacaoService) GetMonthlySpendingProgress(ctx context.Context, usuar
 	}, nil
 }
 
+func (t *TransacaoService) GetCategoryMonthlySummary(ctx context.Context, usuarioID int, mes time.Time) ([]CategoryMonthlySpendingSummary, error) {
+	categorias, err := t.categoriaRepository.GetAllByUsuarioID(ctx, usuarioID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user categories: %w", err)
+	}
+
+	orcamentos, err := t.orcamentosRepository.GetByUsuarioIDAndMes(ctx, usuarioID, normalizeMes(mes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get monthly budgets: %w", err)
+	}
+
+	transacoes, err := t.transacoesRepository.GetAllByUsuarioIDAndMes(ctx, usuarioID, mes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get monthly transactions: %w", err)
+	}
+
+	categoryTotals := make(map[int]float64, len(categorias))
+	categoryBudgets := make(map[int]float64, len(orcamentos))
+	categoryNames := make(map[int]string, len(categorias))
+	for _, categoria := range categorias {
+		categoryNames[categoria.ID] = categoria.Nome
+	}
+	for _, orcamento := range orcamentos {
+		categoryBudgets[orcamento.CategoriaID] = orcamento.Limite
+	}
+
+	for _, transacao := range transacoes {
+		if strings.EqualFold(categoryNames[transacao.CategoriaID], receitaCategoryName) {
+			continue
+		}
+
+		categoryTotals[transacao.CategoriaID] += transacao.Valor
+	}
+
+	summaries := make([]CategoryMonthlySpendingSummary, 0, len(categorias))
+	for _, categoria := range categorias {
+		if strings.EqualFold(categoria.Nome, receitaCategoryName) {
+			continue
+		}
+
+		orcamento := categoryBudgets[categoria.ID]
+		gasto := categoryTotals[categoria.ID]
+		disponivel := orcamento - gasto
+		excedido := gasto > orcamento
+
+		var percentualUtilizado float64
+		if orcamento > 0 {
+			percentualUtilizado = (gasto / orcamento) * 100
+		}
+
+		summaries = append(summaries, CategoryMonthlySpendingSummary{
+			CategoriaID:         categoria.ID,
+			CategoriaNome:       categoria.Nome,
+			Orcamento:           orcamento,
+			Gasto:               gasto,
+			Disponivel:          disponivel,
+			PercentualUtilizado: percentualUtilizado,
+			Excedido:            excedido,
+		})
+	}
+
+	return summaries, nil
+}
+
 func (t *TransacaoService) GetCommitmentProjection(ctx context.Context, usuarioID int, mes time.Time, months int) ([]MonthlyCommitmentProjection, error) {
 	if months < 1 {
 		months = 1
@@ -191,4 +271,29 @@ func (t *TransacaoService) getMonthlyRevenueAndExpense(ctx context.Context, usua
 	}
 
 	return totalReceita, totalDespesa, nil
+}
+
+func splitInstallments(total float64, parcelas int) []float64 {
+	if parcelas <= 1 {
+		return []float64{roundToCents(total)}
+	}
+
+	totalCentavos := int(math.Round(total * 100))
+	baseCentavos := totalCentavos / parcelas
+	restanteCentavos := totalCentavos - (baseCentavos * parcelas)
+
+	valores := make([]float64, parcelas)
+	for i := 0; i < parcelas; i++ {
+		centavos := baseCentavos
+		if i == parcelas-1 {
+			centavos += restanteCentavos
+		}
+		valores[i] = float64(centavos) / 100
+	}
+
+	return valores
+}
+
+func roundToCents(value float64) float64 {
+	return math.Round(value*100) / 100
 }

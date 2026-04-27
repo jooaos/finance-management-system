@@ -166,6 +166,30 @@ textarea.form-control {
   font-size: 0.82rem;
 }
 
+.category-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 8px;
+  color: #4b5563;
+  font-size: 0.8rem;
+}
+
+.category-progress {
+  height: 12px;
+  margin-top: 10px;
+}
+
+.is-safe {
+  color: var(--app-green);
+  font-weight: 700;
+}
+
+.is-over {
+  color: var(--app-red);
+  font-weight: 700;
+}
+
 .category-actions {
   display: grid;
   grid-template-columns: repeat(3, auto);
@@ -226,6 +250,32 @@ textarea.form-control {
   border: 1px solid #dfe5ec;
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(30, 42, 56, 0.08);
+}
+
+.category-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.category-overview-grid div {
+  padding: 10px 12px;
+  background: #f7f9fc;
+  border: 1px solid #e1e7ef;
+  border-radius: 4px;
+}
+
+.category-overview-grid span {
+  display: block;
+  margin-bottom: 6px;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.category-overview-grid strong {
+  font-size: 0.95rem;
 }
 
 .chart-card h2,

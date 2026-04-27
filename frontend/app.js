@@ -4,6 +4,7 @@ const state = {
   usuarioID: Number(localStorage.getItem("usuarioID")) || null,
   categorias: [],
   orcamentos: [],
+  categorySummaries: [],
   monthlySummary: null,
   monthlyBudgetTotal: 0,
 };
@@ -78,6 +79,15 @@ function getUsuarioID() {
   return typedID;
 }
 
+function getFormElement(id) {
+  const formElement = document.getElementById(id);
+  if (!(formElement instanceof HTMLFormElement)) {
+    throw new Error(`Formulario "${id}" nao encontrado`);
+  }
+
+  return formElement;
+}
+
 async function loadCategorias() {
   let usuarioID;
   try {
@@ -88,7 +98,7 @@ async function loadCategorias() {
 
   try {
     state.categorias = await request(`/usuarios/${usuarioID}/categorias`);
-    await loadOrcamentos();
+    await Promise.all([loadOrcamentos(), loadCategorySummaries()]);
     renderCategorias();
     renderCategoriaOptions();
   } catch (error) {
@@ -119,12 +129,26 @@ function renderCategorias() {
 
   state.categorias.forEach((categoria) => {
     const orcamento = findOrcamentoByCategoriaID(categoria.id);
+    const summary = findCategorySummaryByCategoriaID(categoria.id);
+    const gasto = Number(summary?.gasto || 0);
+    const disponivel = Number(summary?.disponivel ?? (orcamento?.limite || 0));
+    const percentualUtilizado = Number(summary?.percentual_utilizado || 0);
+    const progressWidth = orcamento?.limite > 0 ? Math.min(percentualUtilizado, 100) : 0;
+    const statusClass = disponivel < 0 ? "is-over" : "is-safe";
+    const disponivelLabel = disponivel < 0 ? "Excedido" : "Disponível";
     const row = document.createElement("div");
     row.className = "category-row";
     row.innerHTML = `
       <div>
         <div class="category-name">${categoria.nome}</div>
         <div class="category-budget">Orçamento: ${formatMoney(orcamento?.limite || 0)}</div>
+        <div class="category-metrics">
+          <span>Gasto: ${formatMoney(gasto)}</span>
+          <span class="${statusClass}">${disponivelLabel}: ${formatMoney(Math.abs(disponivel))}</span>
+        </div>
+        <div class="progress category-progress" role="progressbar" aria-label="Consumo do orçamento da categoria">
+          <div class="progress-bar ${disponivel < 0 ? "bg-danger" : "bg-success"}" style="width: ${progressWidth}%"></div>
+        </div>
       </div>
       <div class="category-actions">
         <button class="btn btn-outline-primary" type="button" data-budget="${categoria.id}">Limite</button>
@@ -147,6 +171,34 @@ async function loadOrcamentos(mes = getMonthInputValue("mesCategorias")) {
 
 function findOrcamentoByCategoriaID(categoriaID) {
   return state.orcamentos.find((orcamento) => orcamento.categoria_id === categoriaID);
+}
+
+async function loadCategorySummaries(mes = getMonthInputValue("mesCategorias")) {
+  if (!state.usuarioID || !mes) {
+    state.categorySummaries = [];
+    renderCategoryOverview();
+    return;
+  }
+
+  state.categorySummaries = await request(`/usuarios/${state.usuarioID}/relatorios/categorias?mes=${monthToDateParam(mes)}`);
+  renderCategoryOverview();
+}
+
+function findCategorySummaryByCategoriaID(categoriaID) {
+  return state.categorySummaries.find((summary) => summary.categoria_id === categoriaID);
+}
+
+function renderCategoryOverview() {
+  const totals = state.categorySummaries.reduce((accumulator, item) => {
+    accumulator.orcado += Number(item.orcamento || 0);
+    accumulator.gasto += Number(item.gasto || 0);
+    accumulator.disponivel += Number(item.disponivel || 0);
+    return accumulator;
+  }, { orcado: 0, gasto: 0, disponivel: 0 });
+
+  document.getElementById("categoriasTotalOrcado").textContent = formatMoney(totals.orcado);
+  document.getElementById("categoriasTotalGasto").textContent = formatMoney(totals.gasto);
+  document.getElementById("categoriasTotalDisponivel").textContent = formatMoney(totals.disponivel);
 }
 
 document.addEventListener("click", async (event) => {
@@ -219,9 +271,13 @@ document.addEventListener("click", async (event) => {
 document.getElementById("mesCategorias").addEventListener("change", loadCategorias);
 document.getElementById("mesRelatorio").addEventListener("change", loadMonthlySummary);
 
-document.getElementById("usuarioForm").addEventListener("submit", async (event) => {
+const usuarioForm = getFormElement("usuarioForm");
+const transacaoForm = getFormElement("transacaoForm");
+const categoriaForm = getFormElement("categoriaForm");
+
+usuarioForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const formElement = event.currentTarget;
+  const formElement = usuarioForm;
   const form = new FormData(formElement);
 
   try {
@@ -243,9 +299,9 @@ document.getElementById("usuarioForm").addEventListener("submit", async (event) 
   }
 });
 
-document.getElementById("transacaoForm").addEventListener("submit", async (event) => {
+transacaoForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const formElement = event.currentTarget;
+  const formElement = transacaoForm;
   const form = new FormData(formElement);
 
   try {
@@ -271,9 +327,9 @@ document.getElementById("transacaoForm").addEventListener("submit", async (event
   }
 });
 
-document.getElementById("categoriaForm").addEventListener("submit", async (event) => {
+categoriaForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const formElement = event.currentTarget;
+  const formElement = categoriaForm;
   const form = new FormData(formElement);
 
   try {

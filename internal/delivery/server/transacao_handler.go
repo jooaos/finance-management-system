@@ -62,6 +62,22 @@ func (h *HTTPServer) GetMonthlySpendingProgress(w http.ResponseWriter, r *http.R
 	writeSuccessResponse(w, http.StatusOK, progress)
 }
 
+func (h *HTTPServer) GetCategoryMonthlySummary(w http.ResponseWriter, r *http.Request) {
+	usuarioID, mes, ok := h.getUsuarioIDAndMesFromRequest(w, r)
+	if !ok {
+		return
+	}
+
+	summary, err := h.transacaoService.GetCategoryMonthlySummary(r.Context(), usuarioID, mes)
+	if err != nil {
+		h.logger.Error("could not get category monthly summary", helpers.ErrLoggingKey, err)
+		writeErrorResponse(w, http.StatusBadRequest, "could not get category monthly summary", err.Error())
+		return
+	}
+
+	writeSuccessResponse(w, http.StatusOK, summary)
+}
+
 func (h *HTTPServer) GetCommitmentProjection(w http.ResponseWriter, r *http.Request) {
 	usuarioID, mes, ok := h.getUsuarioIDAndMesFromRequest(w, r)
 	if !ok {
